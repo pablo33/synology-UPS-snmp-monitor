@@ -36,8 +36,8 @@ Other py-compiled MIBs files (bundled with this source code)
 
 you can install it by tiping on your python environment:  
 
-python3 -m pip install pysnmp
-python3 -m pip install pysnmp-pysmi
+python3 -m pip install pysnmp  
+python3 -m pip install pysnmp-pysmi  
 
 
 
