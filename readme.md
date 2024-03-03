@@ -1,12 +1,11 @@
 # Description
-This is a little script to shoot down a linux system once an UPS is going to run out of battery, and the ups is connected to a synology NAS.
-
+This is a little script to shutdown a linux system when an UPS connected to a synology NAS is going to run out of battery.
 
 
 #The problem:
 I recently, bought an UPS to enhance my home server and home-land. It is a CyberPower VP700ELCD. The router, one switch, a Synology NAS  DS220+ and a Raspberrypi 3B+ is attached to the UPS.  
 The UPS is compatible with Synology systems, and is connected via USB. So when the UPS is going to run out of battery, the Synology-NAS system can detect it and perform a system-shutdown.  
-The problem is that the Rasberrypi is not aware of none of that and can't perform a shutdown before the battery runs out.    
+The problem is that the Rasberrypi is not aware of none of that and it can't perform a shutdown before the battery runs out.    
 
 #The idea:
 Take advantage of snmp capabilities over the Synology NAS and read the UPS status vian SNMP protocol to perform a controlled shutdown on the system.  
