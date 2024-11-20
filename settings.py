@@ -5,7 +5,10 @@ hostIP = "192.168.1.33"		# Your NAS IP on the lan. The nas is from where you fet
 snmpComunity = "public"	# Your SNMP comunity por snmp v1/v2. You have to configure it at your NAS device.
 
 #UPS
-exTonBm		= 39*60			# Expected time for the UPS to run in batery mode until it empties.
+exTonBm		= 39*60			# Expected time in seconds for the UPS to run in batery mode until it empties.
 
 #SYSTEM
-shutdowntime	= 60		# Expected time the system needs to do a normal shutdown.
+shutdowntime	= 60		# Expected time in seconds the system needs to do a normal shutdown.
+
+#LOGGIN
+loginlevel		= "INFO"	# DEBUG INFO WARNING CRITICAL
