@@ -211,9 +211,10 @@ if __name__ == '__main__':
 		if Con.has_data:
 			if Con.LifeLevel <= 0:
 				break
-		if "OB" in Con.status:
-			# We are on battery mode
-			logging.warning(Con.prt_values())
+		if Con.status:
+			if "OB" in Con.status:
+				# We are on battery mode
+				logging.warning(Con.prt_values())
 		time.sleep(Con.nextsafeiter)
 
 	# perform a Shutdown system
