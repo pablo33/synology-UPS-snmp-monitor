@@ -142,12 +142,13 @@ class Connection ():
 		("maxcharge", self.maxcharge),
 		("charge",self.charge),
 		("warningcharge", self.warningcharge),
-		("nextsafeiter",self.nextsafeiter),
 		("LifeLevel", self.LifeLevel),
+		("nextsafeiter",self.nextsafeiter),
 		)
-		print ("======")
+		text = ("======")
 		for n,v in vars:
-			print (n," = ", v)
+			text += n+"="+str(v)
+		return text
 
 	@property
 	def is_iniatilized (self):
@@ -210,7 +211,9 @@ if __name__ == '__main__':
 		if Con.has_data:
 			if Con.LifeLevel <= 0:
 				break
-		Con.prt_values()
+		if "OB" in Con.status:
+			# We are on battery mode
+			logging.warning(Con.prt_values())
 		time.sleep(Con.nextsafeiter)
 
 	# perform a Shutdown system
