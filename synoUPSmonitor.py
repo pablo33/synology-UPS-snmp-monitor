@@ -33,7 +33,7 @@ class Connection ():
 
 		self.hostIsReachable 	= None		# True / False / None
 		self.hostLastContact 	= None		# None: if never had been contacted since fresh start / System Datetime of last contact.
-		self.LifeLevel	= None		# Percent of life running in battery mode.
+		self.LifeLevel			= None		# Percent of life running in battery mode.
 
 
 
@@ -55,6 +55,18 @@ class Connection ():
 		mibname, valuename, formatdata = targetdata
 		port = 161							# default port for snmp comunication
 
+		# for python 3.7.17		(pysnmp==6.0.13)
+		"""
+		pkg = getCmd(
+				SnmpEngine(),
+				CommunityData(self.snmpComunity),
+				UdpTransportTarget((self.hostIP, port)),
+				ContextData(),
+				ObjectType (ObjectIdentity(mibname, valuename, 0).addMibSource('./pysnmp_mibs.PY'))
+				)
+		errorIndication, errorStatus, errorIndex, varBinds = pkg
+		"""
+		# for python 3.7.3		(pysnmp==4.4.12)
 		iterator = getCmd(
 				SnmpEngine(),
 				CommunityData(self.snmpComunity),
@@ -62,7 +74,6 @@ class Connection ():
 				ContextData(),
 				ObjectType (ObjectIdentity(mibname, valuename, 0).addMibSource('./pysnmp_mibs.PY'))
 				)
-		
 		errorIndication, errorStatus, errorIndex, varBinds = next(iterator)
 
 		if errorIndication:
@@ -80,9 +91,11 @@ class Connection ():
 						value = float.fromhex(value)
 						#value = round(((value/1000000000-44886480)*8000-7840.800488)/100, 2)
 						self.hostIsReachable = True
-						return id,value
 					except:
 						logging.critical ("Error retrieving a float from hex: ", value)
+
+				logging.debug (f"Data retrieved from host: id={id}, value={value}")
+				return id, value
 
 		self.hostIsReachable = False
 		return None, None
@@ -91,18 +104,18 @@ class Connection ():
 	def updatevalues (self):
 		""" Update values retrieved from snmp """
 		## updating Status and max charge value
-		id, status = Con.getdata(datadict['InfoStatus'])
+		id, status = self.getdata(datadict['InfoStatus'])
 		if id != None:
 			self.status = status
-			id, value = Con.getdata(datadict['BatteryChargeValue'])
+			id, value = self.getdata(datadict['BatteryChargeValue'])
 			if id != None:
 				self.charge = value
 				if self.status == 'OL' or (self.status == 'OL CHRG' and self.maxcharge < value):
-					# Unit is Online or charging, charge is at max or is greater
+					logging.info(f"Unit status is {self.status}")
 					self.maxcharge = value
 
 		## updating warning value
-		id, value = Con.getdata(datadict['BatteryChargeWarning'])
+		id, value = self.getdata(datadict['BatteryChargeWarning'])
 		if id != None:
 			self.warningcharge = value
 
@@ -111,44 +124,54 @@ class Connection ():
 			self.LifeLevel = round((self.charge - self.warningcharge) / (self.maxcharge - self.warningcharge), 2)
 		
 			## updating minutes to wait next iter
-			if self.status == 'OL' or self.status == 'OL CHRG':
+			if self.status == 'OL':
 				hurry = 2
+				self.nextsafeiter = int(((self.exTonBm - self.shutdowntime) * self.LifeLevel) / hurry)
 			else:
 				hurry = 5
-			self.nextsafeiter = int(((self.exTonBm - self.shutdowntime) * self.LifeLevel) / hurry)
+				self.nextsafeiter = int(((self.exTonBm - self.shutdowntime) * self.LifeLevel) / hurry)
+				if self.nextsafeiter > 60:
+					self.nextsafeiter = 60
 
 			if self.nextsafeiter < 20:
 				self.nextsafeiter = 20
+		logging.debug (f"Next safe iteration time: {self.nextsafeiter} seconds")
 		
 	def prt_config(self):
-		""" Prints actual configuration
-			"""
-		logging.info("\n".join
-			   (
-			['Running with this config',
-			f'Instance name: {self.name}',
-			f'Host IP: {self.hostIP}',
-			f'snmpComunity: {self.snmpComunity}',
-			f'Expected lifetime on battery mode (seconds): {self.exTonBm}',
-			f'Expected time to shutdown the system (seconds): {self.shutdowntime}',
+		""" Prints and logg actual configuration"""
+
+		mylist = ['Running with this config',
+		f'Instance name: {self.name}',
+		f'Host IP: {self.hostIP}',
+		f'snmpComunity: {self.snmpComunity}',
+		f'Expected lifetime on battery mode (seconds): {self.exTonBm}',
+		f'Expected time to shutdown the system (seconds): {self.shutdowntime}',
 			]
-				)
-		)
+		for n in mylist:
+			print (n)
+			logging.info(n)
+
+	@property
+	def values (self):
+		""" Returns a dictionary with the values of the instance"""
+
+		return {
+			"hostIsReachable": self.hostIsReachable,
+			"status": self.status,
+			"maxcharge": self.maxcharge,
+			"charge":self.charge,
+			"warningcharge": self.warningcharge,
+			"LifeLevel": self.LifeLevel,
+			"nextsafeiter":self.nextsafeiter,
+		}
 
 	def prt_values(self):
-		vars = (
-		("hostIsReachable", self.hostIsReachable),
-		("status", self.status),
-		("maxcharge", self.maxcharge),
-		("charge",self.charge),
-		("warningcharge", self.warningcharge),
-		("LifeLevel", self.LifeLevel),
-		("nextsafeiter",self.nextsafeiter),
-		)
-		text = ("======")
-		for n,v in vars:
-			text += n+"="+str(v)
-		return text
+		""" Prints and logg the values of the instance """
+		print ("======")
+		for n in self.values:
+			a = f"{n} = {str(self.values[n])}"
+			print (a)
+			logging.info(a)
 
 	@property
 	def is_iniatilized (self):
@@ -168,7 +191,7 @@ if __name__ == '__main__':
 	now = datetime.datetime.now()
 	today = "/".join([str(now.day),str(now.month),str(now.year)])
 	tohour = ":".join([str(now.hour),str(now.minute)])
-	logging_file = "synologyUPSMonitor.log"
+	logging_file = "synologyUPSmonitor.log"
 	print ("Loginlevel:", settings.loginlevel)
 	logging.basicConfig(
 		level=settings.loginlevel,
@@ -214,10 +237,13 @@ if __name__ == '__main__':
 		if Con.status:
 			if "OB" in Con.status:
 				# We are on battery mode
-				logging.warning(Con.prt_values())
+				logging.warning (f"UPS is on battery mode, status: {Con.status}")
+				Con.prt_values()
+			elif settings.loginlevel == "DEBUG":
+				Con.prt_values()
 		time.sleep(Con.nextsafeiter)
 
 	# perform a Shutdown system
-	logging.warning ("Performing a shutdown")
+	logging.critical ("Performing a shutdown")
 	#os.system('shutdown -k +1')
 	os.system('shutdown -h now')
