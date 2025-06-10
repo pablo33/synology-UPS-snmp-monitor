@@ -111,7 +111,7 @@ class Connection ():
 			if id != None:
 				self.charge = value
 				if self.status == 'OL' or (self.status == 'OL CHRG' and self.maxcharge < value):
-					logging.info(f"Unit status is {self.status}")
+					logging.debug(f"Unit status is {self.status}")
 					self.maxcharge = value
 
 		## updating warning value
@@ -243,7 +243,7 @@ if __name__ == '__main__':
 				Con.prt_values()
 		time.sleep(Con.nextsafeiter)
 
-	# perform a Shutdown system
+	# perform a system Shutdown 
 	logging.critical ("Performing a shutdown")
 	#os.system('shutdown -k +1')
 	os.system('shutdown -h now')
