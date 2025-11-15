@@ -1,17 +1,20 @@
 #!/usr/bin/python3
 __author__ 	= "pablo33"
-__version__	= "1.0"
+__version__	= "1.1"
 
 import settings, time, os, logging, datetime
-from pysnmp.hlapi import *
+
+# for python 3.7.17		(pysnmp==6.0.13)
+import asyncio
+from pysnmp.hlapi.v3arch.asyncio import *
 
 
 """ 
 User config data:
 Put this lines in a settings.py file besides your script
 
-	hostIP = "10.218.1.20"		# Your NAS IP on the lan. The nas is from where you fetch the UPS information.
-	snmpComunity = "sparrow"	# Your SNMP comunity por snmp v1/v2. You have to configure it at your NAS device.
+	hostIP = "192.168.1.20"		# Your NAS IP on the lan. The nas is from where you fetch the UPS information.
+	snmpComunity = "public"		# Your SNMP comunity por snmp v1/v2. You have to configure it at your NAS device.
 	exTonBm		= 50*60			# Expected time in seconds for the UPS to run in batery mode until it empties.
 	shutdowntime	= 60		# Expected time in seconds the system needs to do a normal shutdown.
 	loginlevel		= "INFO"	# DEBUG INFO WARNING CRITICAL
@@ -35,8 +38,6 @@ class Connection ():
 		self.hostLastContact 	= None		# None: if never had been contacted since fresh start / System Datetime of last contact.
 		self.LifeLevel			= None		# Percent of life running in battery mode.
 
-
-
 	## Decorators
 	def needinitialized (fx):
 		def decorator (*args, **kw_args):
@@ -54,9 +55,23 @@ class Connection ():
 			"""
 		mibname, valuename, formatdata = targetdata
 		port = 161							# default port for snmp comunication
+		
+		# for python 3.13		(pysnmp==7.1.13  with asyncio support)
+		async def fetch_snmp_data():
+			return await get_cmd(
+					SnmpEngine(),
+					CommunityData(self.snmpComunity),
+					await UdpTransportTarget.create((self.hostIP, port)),
+					ContextData(),
+					ObjectType (ObjectIdentity(mibname, valuename, 0).add_mib_source('./pysnmp_mibs.PY'))
+					)
+		
+		errorIndication, errorStatus, errorIndex, varBinds = asyncio.run(fetch_snmp_data())
 
-		# for python 3.7.17		(pysnmp==6.0.13)
+		#errorIndication, errorStatus, errorIndex, varBinds = pkg
+
 		"""
+		# for python 3.7.17		(pysnmp==6.0.13)
 		pkg = getCmd(
 				SnmpEngine(),
 				CommunityData(self.snmpComunity),
@@ -65,6 +80,7 @@ class Connection ():
 				ObjectType (ObjectIdentity(mibname, valuename, 0).addMibSource('./pysnmp_mibs.PY'))
 				)
 		errorIndication, errorStatus, errorIndex, varBinds = pkg
+		"""
 		"""
 		# for python 3.7.3		(pysnmp==4.4.12)
 		iterator = getCmd(
@@ -75,7 +91,7 @@ class Connection ():
 				ObjectType (ObjectIdentity(mibname, valuename, 0).addMibSource('./pysnmp_mibs.PY'))
 				)
 		errorIndication, errorStatus, errorIndex, varBinds = next(iterator)
-
+		"""
 		if errorIndication:
 			logging.warning(errorIndication)
 
@@ -104,6 +120,7 @@ class Connection ():
 	def updatevalues (self):
 		""" Update values retrieved from snmp """
 		## updating Status and max charge value
+		
 		id, status = self.getdata(datadict['InfoStatus'])
 		if id != None:
 			self.status = status
@@ -243,7 +260,12 @@ if __name__ == '__main__':
 				Con.prt_values()
 		time.sleep(Con.nextsafeiter)
 
+	# perform Proxmox VMs and containers shutdown
+	os.system ('pvenode stopall --force-stop 1 --timeout 60')
+	
+	# wait some time to ensure all VMs and containers are down
+	time.sleep (settings.shutdowntime + 10)
+
 	# perform a system Shutdown 
-	logging.critical ("Performing a shutdown")
-	#os.system('shutdown -k +1')
+	logging.info ("Performing a shutdown")
 	os.system('shutdown -h now')
